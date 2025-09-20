@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Test Fixture Management System</title>
+  <style>
+    /* ====== Original style (kept) ====== */
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif; background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); min-height:100vh; padding:20px; }
+    .container { max-width:1400px; margin:0 auto; background:white; border-radius:20px; box-shadow:0 15px 40px rgba(0,0,0,0.3); overflow:hidden; min-height:90vh; }
+    .header { background:linear-gradient(135deg,#2c3e50,#34495e); color:white; padding:30px; text-align:center; }
+    .header h1 { font-size:2.5rem; margin-bottom:10px; }
+    .header p { font-size:1.2rem; opacity:.9; }
+    .screen { display:none; padding:30px; min-height:600px; }
+    .screen.active { display:block; }
+
+    /* Screen 1 layout (kept) */
+    .search-selection-screen { display:grid; grid-template-columns:1fr 1fr; gap:30px; align-items:start; }
+    .search-section { background:#f8f9fa; padding:30px; border-radius:15px; border:3px solid #e9ecef; }
+    .search-section h2 { color:#2c3e50; margin-bottom:20px; font-size:1.8rem; }
+    .input-group { margin-bottom:25px; }
+    .input-group label { display:block; margin-bottom:10px; font-weight:600; color:#495057; font-size:1.1rem; }
+    .input-group input { width:100%; padding:15px; border:3px solid #dee2e6; border-radius:10px; font-size:18px; text-align:center; transition:all .3s; }
+    .input-group input:focus { outline:none; border-color:#667eea; box-shadow:0 0 0 3px rgba(102,126,234,.1); }
+
+    .btn { position:relative; padding:12px 25px; border:none; border-radius:8px; font-size:16px; font-weight:600; cursor:pointer; transition:all .3s; margin:8px; min-width:120px; overflow:hidden; }
+    .btn-primary{ background:linear-gradient(135deg,#667eea,#764ba2); color:white; }
+    .btn-primary:hover{ transform:translateY(-2px); box-shadow:0 5px 15px rgba(102,126,234,.4); }
+    .btn-success{ background:linear-gradient(135deg,#28a745,#20c997); color:white; }
+    .btn-warning{ background:linear-gradient(135deg,#ffc107,#fd7e14); color:white; }
+    .btn-danger{ background:linear-gradient(135deg,#dc3545,#fd7e14); color:white; }
+    .btn-info{ background:linear-gradient(135deg,#17a2b8,#007bff); color:white; }
+
+    /* Disabled button overlay */
+    .btn[disabled] {
+      cursor:not-allowed;
+      filter:saturate(0.7) brightness(0.9);
+    }
+    .btn[disabled]::after {
+      content:"🔒";
+      position:absolute;
+      inset:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:rgba(0,0,0,0.25);
+      color:#fff;
+      font-weight:800;
+      letter-spacing:1px;
+    }
+
+    .selection-section { background:linear-gradient(135deg,#667eea,#764ba2); color:white; padding:30px; border-radius:15px; }
+    .selection-section h2 { margin-bottom:20px; font-size:1.8rem; }
+    .fixture-found { background:rgba(255,255,255,.1); padding:20px; border-radius:10px; margin-bottom:25px; backdrop-filter:blur(10px); }
+    .system-grid { display:grid; grid-template-columns:1fr 1fr; gap:15px; margin:20px 0; }
+    .system-option { background:rgba(255,255,255,.1); padding:20px; border-radius:10px; border:2px solid transparent; cursor:pointer; transition:all .3s; text-align:center; }
+    .system-option:hover { background:rgba(255,255,255,.2); transform:translateY(-2px); }
+    .system-option.selected { border-color:white; background:rgba(255,255,255,.3); transform:translateY(-2px); }
+    .system-icon { font-size:2rem; margin-bottom:10px; }
+    .system-option h4 { font-size:1.2rem; margin-bottom:5px; }
+    .system-option p { font-size:.85rem; opacity:.9; }
+
+    /* Screen 2 layout (kept) */
+    .location-scan-screen { display:grid; grid-template-columns:1fr 1fr; gap:30px; }
+    .fixture-details-section { background:linear-gradient(135deg,#667eea,#764ba2); color:white; padding:30px; border-radius:15px; }
+    .fixture-details-section h2 { margin-bottom:20px; font-size:1.8rem; }
+    .detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:15px; margin:20px 0; }
+    .detail-item { background:rgba(255,255,255,.1); padding:12px; border-radius:8px; backdrop-filter:blur(10px); }
+    .detail-item label { font-weight:600; opacity:.8; display:block; margin-bottom:5px; font-size:.9rem; }
+    .detail-item span { font-size:1.1rem; }
+
+    .scan-section { background:#f8f9fa; padding:30px; border-radius:15px; border:3px solid #e9ecef; text-align:center; }
+    .scan-section h2 { color:#2c3e50; margin-bottom:20px; font-size:1.8rem; }
+    .location-highlight { background:linear-gradient(135deg,#ff6b6b,#ee5a24); padding:25px; border-radius:15px; margin:20px 0; text-align:center; animation:pulse 2s infinite; color:white; }
+    @keyframes pulse { 0%{transform:scale(1)} 50%{transform:scale(1.02)} 100%{transform:scale(1)} }
+
+    /* Global step indicator (style kept) */
+    .step-indicator { display:flex; justify-content:center; margin:20px 0; gap:10px; }
+    .step { width:15px; height:15px; border-radius:50%; background:#ddd; }
+    .step.active { background:#667eea; }
+    .step.completed { background:#28a745; }
+
+    .transaction-success-screen { text-align:center; }
+    .transaction-card { max-width:800px; margin:0 auto; background:#f8f9fa; padding:40px; border-radius:20px; border:3px solid #e9ecef; }
+    .scan-success { background:linear-gradient(135deg,#00b894,#00a085); color:white; padding:25px; border-radius:15px; margin:25px 0; }
+    .transaction-summary { background:#e3f2fd; padding:25px; border-radius:15px; margin:25px 0; border:2px solid #2196f3; text-align:left; }
+    .transaction-summary h4 { color:#1976d2; margin-bottom:15px; }
+
+    .employee-section { background:linear-gradient(135deg,#74b9ff,#0984e3); color:white; padding:25px; border-radius:15px; margin:25px 0; }
+    .employee-section input { width:100%; padding:12px; border:none; border-radius:8px; font-size:16px; text-align:center; margin-top:10px; }
+    .inline-qty { display:flex; gap:10px; align-items:center; justify-content:center; margin-top:15px; }
+    .inline-qty input { max-width:150px; }
+
+    .hidden { display:none; }
+    .error-message { background:#f8d7da; color:#721c24; padding:12px; border-radius:8px; margin:15px 0; border:1px solid #f5c6cb; }
+    .navigation-buttons { text-align:center; margin-top:25px; }
+    .instruction-note { background:linear-gradient(135deg,#17a2b8,#007bff); color:white; padding:15px; border-radius:10px; margin:15px 0; font-size:.9rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🔧 Test Fixture Management</h1>
+      <p>Smart Inventory Tracking System - 3 Screen Interface</p>
+    </div>
+
+    <!-- Global step indicator -->
+    <div class="step-indicator" id="global-steps">
+      <div class="step"></div>
+      <div class="step"></div>
+      <div class="step"></div>
+    </div>
+
+    <!-- Screen 1: Search + (hidden) System Selection -->
+    <div class="screen search-selection-screen active" id="search-selection-screen">
+      <!-- Left: Search -->
+      <div class="search-section">
+        <h2>🔍 Find Test Fixture</h2>
+
+        <div class="input-group">
+          <label for="article-number">Enter Article Number</label>
+          <input type="text" id="article-number" placeholder="Type article number..." onkeypress="handleEnter(event)" autofocus>
+        </div>
+
+        <button class="btn btn-primary" onclick="searchFixture()">🔍 Search Fixture</button>
+
+        <div class="instruction-note">
+          <strong>📋 Instructions:</strong><br>
+          Enter Article Number. If found, you can select a test system with available units.
+        </div>
+
+        <div id="search-error" class="error-message hidden"></div>
+      </div>
+
+      <!-- Right: System Selection (hidden until search succeeds) -->
+      <div class="selection-section hidden" id="selection-section">
+        <h2>⚙️ Select Test System</h2>
+
+        <div id="fixture-found" class="fixture-found hidden">
+          <h3>✅ Fixture Found:</h3>
+          <p><strong>Article: <span id="found-article">-</span> | Part: <span id="found-part">-</span></strong></p>
+          <p><strong>Name: <span id="found-name">-</span></strong></p>
+        </div>
+
+        <div id="systems-empty-note" class="instruction-note hidden">
+          No available systems for this article right now.
+        </div>
+
+        <div class="system-grid" id="system-grid"></div>
+
+        <div id="selection-error" class="error-message hidden"></div>
+
+        <div class="navigation-buttons">
+          <button class="btn btn-success" onclick="proceedToLocation()" id="proceed-btn" disabled>
+            Continue to Location →
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Screen 2: Fixture Details + Borrow -->
+    <div class="screen location-scan-screen" id="location-scan-screen">
+      <!-- Left: Details -->
+      <div class="fixture-details-section">
+        <h2>📋 Fixture Details</h2>
+
+        <div class="detail-grid">
+          <div class="detail-item">
+            <label>Article Number:</label>
+            <span id="detail-article">-</span>
+          </div>
+          <div class="detail-item">
+            <label>Part Number:</label>
+            <span id="detail-part">-</span>
+          </div>
+          <div class="detail-item">
+            <label>Available Units:</label>
+            <span id="detail-units">-</span>
+          </div>
+          <div class="detail-item">
+            <label>Test System:</label>
+            <span id="detail-system">-</span>
+          </div>
+        </div>
+
+        <div class="detail-item" style="margin-top:15px;">
+          <label>Fixture Name:</label>
+          <span id="detail-name">-</span>
+        </div>
+
+        <div class="detail-item" style="margin-top:15px;">
+          <label>Description:</label>
+          <span id="detail-description">-</span>
+        </div>
+
+        <div class="detail-item" style="margin-top:15px;">
+          <label>Locations:</label>
+          <span id="detail-locations">-</span>
+        </div>
+      </div>
+
+      <!-- Right: Location + Borrow form -->
+      <div class="scan-section">
+        <h2>📍 Fixture Location & Borrow</h2>
+
+        <div class="location-highlight">
+          <h3>📍 Primary Location: <span id="display-location">-</span></h3>
+          <p>Use the location to find the fixture</p>
+        </div>
+
+        <div class="employee-section">
+          <h3>👤 Client Information</h3>
+          <label for="client-name">Client Name</label>
+          <input type="text" id="client-name" placeholder="Enter client name">
+          <div style="height:8px;"></div>
+          <label for="client-phone">Client Phone</label>
+          <input type="text" id="client-phone" placeholder="Enter client phone">
+          <div class="inline-qty">
+            <label for="borrow-qty" style="color:white; font-weight:600;">Quantity</label>
+            <input type="number" id="borrow-qty" min="1" value="1">
+          </div>
+        </div>
+
+        <div id="borrow-error" class="error-message hidden"></div>
+
+        <div class="navigation-buttons">
+          <button class="btn btn-info" onclick="goBackToSearch()">← Back to Search</button>
+          <button class="btn btn-success" id="borrow-btn" onclick="borrowNow()" disabled>✅ Borrow</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Screen 3: Success -->
+    <div class="screen transaction-success-screen" id="transaction-success-screen">
+      <h2 style="color:#2c3e50; margin-bottom:30px;">🎉 Borrow Successful</h2>
+
+      <div class="transaction-card" style="position:relative;">
+        <div class="scan-success">
+          <h3>✅ Transaction Recorded</h3>
+          <p><strong><span id="scanned-details">-</span></strong></p>
+        </div>
+
+        <div class="transaction-summary">
+          <h4>Transaction Details:</h4>
+          <p><strong>Article: <span id="trans-article">-</span> | Part: <span id="trans-part">-</span></strong></p>
+          <p><strong>Fixture: <span id="trans-name">-</span></strong></p>
+          <p><strong>Test System: <span id="trans-system">-</span></strong></p>
+          <p>Location: <span id="trans-location">-</span></p>
+          <p>Borrowed at: <span id="scan-time">-</span></p>
+          <p>Quantity: <span id="trans-qty">-</span></p>
+          <p>Client: <span id="trans-client">-</span> (<span id="trans-clientphone">-</span>)</p>
+        </div>
+
+        <div class="navigation-buttons">
+          <button class="btn btn-primary" onclick="startNewTransaction()">🔄 New Transaction</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ====== State ======
+    let searchedArticle = null;
+    let foundPart = null;
+    let foundName = null;
+    let selectedSystem = null;
+    let availableUnits = 0;
+    let primaryLocation = '';
+    let locationsList = [];
+
+    // System icons (kept)
+    function iconForSystem(sys) {
+      const s = (sys || '').toUpperCase();
+      if (s === 'SAFT') return '🔧';
+      if (s === 'VSFT') return '⚡';
+      if (s === 'VSICT') return '🔬';
+      if (s === 'SPEA3030') return '🎯';
+      return '🧩';
+    }
+
+    // Global step controller
+    function setStep(n) {
+      const steps = document.querySelectorAll('#global-steps .step');
+      steps.forEach((s, i) => {
+        s.classList.remove('active', 'completed');
+        if (i < n - 1) s.classList.add('completed');
+        if (i === n - 1) s.classList.add('active');
+      });
+    }
+
+    // Screens
+    function showScreen(id) {
+      document.querySelectorAll('.screen').forEach(sc => sc.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+    }
+    function handleEnter(e){ if(e.key === 'Enter'){ searchFixture(); } }
+
+    function setError(elId, msg){
+      const el = document.getElementById(elId);
+      el.classList.remove('hidden');
+      el.innerHTML = `<strong>❌ Error!</strong><br>${msg}`;
+    }
+    function clearError(elId){
+      const el = document.getElementById(elId);
+      el.classList.add('hidden');
+      el.textContent = '';
+    }
+
+    // Enable/disable borrow button based on current inputs + state
+    function updateBorrowButtonState() {
+      const nameOk  = (document.getElementById('client-name').value || '').trim().length > 0;
+      const phoneOk = (document.getElementById('client-phone').value || '').trim().length > 0;
+      const qtyVal  = parseInt(document.getElementById('borrow-qty').value || '0', 10);
+      const canBorrow = (
+        selectedSystem && searchedArticle &&
+        availableUnits > 0 &&
+        nameOk && phoneOk &&
+        Number.isFinite(qtyVal) && qtyVal > 0 && qtyVal <= availableUnits
+      );
+      const btn = document.getElementById('borrow-btn');
+      if (btn) btn.disabled = !canBorrow;
+    }
+
+    // Clear Fixture Details panel + inputs (used when going back)
+    function clearDetailsUI() {
+      availableUnits = 0;
+      primaryLocation = '';
+      locationsList = [];
+
+      document.getElementById('detail-article').textContent = '-';
+      document.getElementById('detail-part').textContent = '-';
+      document.getElementById('detail-units').textContent = '-';
+      document.getElementById('detail-system').textContent = '-';
+      document.getElementById('detail-name').textContent = '-';
+      document.getElementById('detail-description').textContent = '-';
+      document.getElementById('detail-locations').textContent = '-';
+      document.getElementById('display-location').textContent = '-';
+
+      const qtyInput = document.getElementById('borrow-qty');
+      if (qtyInput) {
+        qtyInput.value = 1;
+        qtyInput.disabled = true;
+      }
+      const nameEl = document.getElementById('client-name');
+      const phoneEl = document.getElementById('client-phone');
+      if (nameEl) nameEl.value = '';
+      if (phoneEl) phoneEl.value = '';
+
+      const borrowBtn = document.getElementById('borrow-btn');
+      if (borrowBtn) borrowBtn.disabled = true;
+    }
+
+    // 1) Search → reveal system selection (only available)
+    async function searchFixture() {
+      clearError('search-error');
+      clearError('selection-error');
+
+      // Reset right side
+      document.getElementById('selection-section').classList.add('hidden');
+      document.getElementById('fixture-found').classList.add('hidden');
+      document.getElementById('systems-empty-note').classList.add('hidden');
+      document.getElementById('system-grid').innerHTML = '';
+      document.getElementById('proceed-btn').disabled = true;
+      selectedSystem = null;
+
+      const article = document.getElementById('article-number').value.trim();
+      if (!article) { setError('search-error','Please enter an article number'); return; }
+
+      try {
+        const res = await fetch(`/api/search?article=${encodeURIComponent(article)}`);
+        const data = await res.json();
+
+        if (!res.ok) { setError('search-error', data?.error || 'Search failed.'); return; }
+        if (data.found === 'multiple') { setError('search-error','Multiple articles matched. Please enter an exact Article ID.'); return; }
+        if (!data.found) { setError('search-error', 'Fixture not found! Please check the article number.'); return; }
+
+        // Save article + identity
+        searchedArticle = data.article;
+        foundPart = data.part_number || '';
+        foundName = data.name || '';
+
+        // Fill top card
+        document.getElementById('found-article').textContent = searchedArticle;
+        document.getElementById('found-part').textContent = foundPart || '-';
+        document.getElementById('found-name').textContent = foundName || '-';
+        document.getElementById('fixture-found').classList.remove('hidden');
+
+        // Build system tiles ONLY for available ones
+        const systems = Array.isArray(data.systems) ? data.systems : [];
+        const grid = document.getElementById('system-grid');
+        grid.innerHTML = '';
+
+        if (systems.length === 0) {
+          document.getElementById('systems-empty-note').classList.remove('hidden');
+        } else {
+          document.getElementById('systems-empty-note').classList.add('hidden');
+          systems.forEach(({system, available_units}) => {
+            const id = `sys-${system.toLowerCase()}`;
+            const div = document.createElement('div');
+            div.className = 'system-option';
+            div.id = id;
+            div.onclick = () => selectSystem(system);
+            div.innerHTML = `
+              <div class="system-icon">${iconForSystem(system)}</div>
+              <h4>${system}</h4>
+              <p>Available: ${available_units}</p>
+            `;
+            grid.appendChild(div);
+          });
+        }
+
+        // Reveal the right panel
+        document.getElementById('selection-section').classList.remove('hidden');
+        setStep(1);
+
+      } catch (err) {
+        setError('search-error','Network error while searching.');
+      }
+    }
+
+    function selectSystem(system) {
+      selectedSystem = system;
+      document.querySelectorAll('.system-option').forEach(opt => opt.classList.remove('selected'));
+      const el = document.getElementById(`sys-${system.toLowerCase()}`);
+      if (el) el.classList.add('selected');
+      document.getElementById('proceed-btn').disabled = false;
+      clearError('selection-error');
+    }
+
+    // 2) Continue → fetch details, show details screen (kept layout)
+    async function proceedToLocation() {
+      if (!searchedArticle) { setError('selection-error','Please search for a fixture first'); return; }
+      if (!selectedSystem) { setError('selection-error','Please select a test system'); return; }
+
+      try {
+        const res = await fetch(`/api/details?article=${encodeURIComponent(searchedArticle)}&system=${encodeURIComponent(selectedSystem)}`);
+        const data = await res.json();
+        if (!res.ok) { setError('selection-error', data?.error || 'Failed to load details.'); return; }
+
+        // Populate details
+        availableUnits = data.available_units_total ?? 0;
+        primaryLocation = data.primary_location || '';
+        locationsList = Array.isArray(data.locations) ? data.locations : [];
+
+        document.getElementById('detail-article').textContent = data.article || '-';
+        document.getElementById('detail-part').textContent = data.part_number || '-';
+        document.getElementById('detail-units').textContent = String(availableUnits);
+        document.getElementById('detail-system').textContent = data.system || '-';
+        document.getElementById('detail-name').textContent = data.name || '-';
+        document.getElementById('detail-description').textContent = data.description || '-';
+        document.getElementById('detail-locations').textContent = (locationsList.length ? locationsList.join(' | ') : '-');
+        document.getElementById('display-location').textContent = primaryLocation || '-';
+
+        // Clamp qty input
+        const qtyInput = document.getElementById('borrow-qty');
+        qtyInput.max = Math.max(availableUnits, 0);
+        qtyInput.value = availableUnits > 0 ? 1 : 0;
+        qtyInput.disabled = availableUnits <= 0;
+
+        // Bind input listeners once for enabling/disabling borrow button
+        updateBorrowButtonState();
+        ['client-name','client-phone','borrow-qty'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el && !el._boundUpdateBorrow) {
+            el.addEventListener('input', updateBorrowButtonState);
+            el._boundUpdateBorrow = true;
+          }
+        });
+
+        // Move to Screen 2
+        showScreen('location-scan-screen');
+        setStep(2);
+
+      } catch (err) {
+        setError('selection-error','Network error while loading details.');
+      }
+    }
+
+    // 3) Borrow (client fields + location)
+    async function borrowNow() {
+      clearError('borrow-error');
+
+      const clientName = document.getElementById('client-name').value.trim();
+      const clientPhone = document.getElementById('client-phone').value.trim();
+      const qtyVal = parseInt(document.getElementById('borrow-qty').value || '0', 10);
+
+      if (!clientName || !clientPhone) { setError('borrow-error','Please enter client name and phone.'); return; }
+      if (!selectedSystem || !searchedArticle) { setError('borrow-error','Missing selected system or article.'); return; }
+      if (!(qtyVal > 0)) { setError('borrow-error','Quantity must be at least 1.'); return; }
+      if (qtyVal > availableUnits) { setError('borrow-error',`Only ${availableUnits} unit(s) available.`); return; }
+
+      try {
+        const res = await fetch('/api/borrow', {
+          method:'POST',
+          headers:{ 'Content-Type':'application/json' },
+          body: JSON.stringify({
+            article: searchedArticle,
+            system: selectedSystem,
+            quantity: qtyVal,
+            client_name: clientName,
+            client_phone: clientPhone,
+            location: primaryLocation || (locationsList[0] || '')
+          })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          setError('borrow-error', data?.error || 'Borrow failed.');
+          updateBorrowButtonState();
+          return;
+        }
+
+        // Reflect new availability locally (if user navigates back)
+        availableUnits = Math.max(0, availableUnits - (data.quantity || qtyVal));
+        const unitsEl = document.getElementById('detail-units');
+        if (unitsEl) unitsEl.textContent = String(availableUnits);
+
+        // Fill success screen
+        document.getElementById('scanned-details').textContent = `${searchedArticle} | ${foundPart || '-'}`;
+        document.getElementById('trans-article').textContent = searchedArticle;
+        document.getElementById('trans-part').textContent = foundPart || '-';
+        document.getElementById('trans-name').textContent = foundName || '-';
+        document.getElementById('trans-system').textContent = selectedSystem;
+        document.getElementById('trans-location').textContent = data.location || primaryLocation || (locationsList[0] || '-');
+        document.getElementById('scan-time').textContent = data.timestamp || '-';
+        document.getElementById('trans-qty').textContent = String(data.quantity || qtyVal);
+        document.getElementById('trans-client').textContent = clientName;
+        document.getElementById('trans-clientphone').textContent = clientPhone;
+
+        // Disable the borrow button (avoid double submits) and go to success
+        const borrowBtn = document.getElementById('borrow-btn');
+        if (borrowBtn) borrowBtn.disabled = true;
+
+        showScreen('transaction-success-screen');
+        try { window.scrollTo({top: 0, behavior: 'smooth'}); } catch (_) { window.scrollTo(0,0); }
+        setStep(3);
+
+      } catch (err) {
+        setError('borrow-error','Network error while borrowing.');
+        updateBorrowButtonState();
+      }
+    }
+
+    // Navigation helpers (kept layout)
+    function goBackToSearch(){
+      // reset selection view but keep typed article field content
+      document.getElementById('selection-section').classList.add('hidden');
+      document.getElementById('fixture-found').classList.add('hidden');
+      document.getElementById('systems-empty-note').classList.add('hidden');
+      document.getElementById('system-grid').innerHTML = '';
+      document.getElementById('proceed-btn').disabled = true;
+      selectedSystem = null;
+
+      // clear details panel + inputs and lock borrow button
+      clearDetailsUI();
+
+      showScreen('search-selection-screen');
+      setStep(1);
+    }
+
+    function startNewTransaction(){
+      // full reset to Screen 1
+      searchedArticle = null; foundPart = null; foundName = null;
+      selectedSystem = null; availableUnits = 0; primaryLocation = ''; locationsList = [];
+      document.getElementById('article-number').value = '';
+      document.getElementById('selection-section').classList.add('hidden');
+      document.getElementById('fixture-found').classList.add('hidden');
+      document.getElementById('systems-empty-note').classList.add('hidden');
+      document.getElementById('system-grid').innerHTML = '';
+      document.getElementById('proceed-btn').disabled = true;
+
+      clearDetailsUI();
+      clearError('search-error'); clearError('selection-error'); clearError('borrow-error');
+
+      showScreen('search-selection-screen');
+      document.getElementById('article-number').focus();
+      setStep(1);
+    }
+
+    // Initialize global steps on load
+    setStep(1);
+  </script>
+</body>
+</html>
