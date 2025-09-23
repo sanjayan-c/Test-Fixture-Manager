@@ -103,10 +103,16 @@
     <div class="header">
       <h1>🔧 Test Fixture Management</h1>
       <p>Smart Inventory Tracking System - 3 Screen Interface</p>
+      <!-- Add a button to navigate to the return screen -->
+      <div style="margin-top: 15px;">
+        <button class="btn btn-warning" onclick="showScreen('return-books-screen'); setStep(4);" style="margin: 0 5px;">↩️ Return Fixture</button>
+        <button class="btn btn-primary" onclick="showScreen('search-selection-screen'); setStep(1);" style="margin: 0 5px;">🔍 Borrow Fixture</button>
+      </div>
     </div>
 
     <!-- Global step indicator -->
     <div class="step-indicator" id="global-steps">
+      <div class="step"></div>
       <div class="step"></div>
       <div class="step"></div>
       <div class="step"></div>
@@ -257,6 +263,41 @@
         </div>
       </div>
     </div>
+
+    <!-- Screen 4: Return Books -->
+    <div class="screen return-books-screen" id="return-books-screen">
+      <div class="search-section">
+        <h2>↩️ Return Test Fixture</h2>
+
+        <div class="input-group">
+          <label for="return-phone">Client Phone Number</label>
+          <input type="text" id="return-phone" placeholder="Enter client phone number..." onkeypress="handleReturnEnter(event)">
+        </div>
+
+        <div class="input-group">
+          <label for="return-part">Part Number</label>
+          <input type="text" id="return-part" placeholder="Enter part number...">
+        </div>
+
+        <button class="btn btn-primary" onclick="returnFixture()">↩️ Return Fixture</button>
+
+        <div class="instruction-note">
+          <strong>📋 Instructions:</strong><br>
+          Enter Client Phone Number and Part Number to return all matching fixtures.
+        </div>
+
+        <div id="return-error" class="error-message hidden"></div>
+        <div id="return-success" class="scan-success hidden">
+          <h3>✅ Return Successful</h3>
+          <p><strong><span id="return-details">-</span></strong></p>
+          <p>Returned at: <span id="return-time">-</span></p>
+        </div>
+
+        <div class="navigation-buttons">
+          <button class="btn btn-info" onclick="showScreen('search-selection-screen'); setStep(1);">← Back to Search</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -295,6 +336,13 @@
       document.getElementById(id).classList.add('active');
     }
     function handleEnter(e){ if(e.key === 'Enter'){ searchFixture(); } }
+
+    // Add a new function to handle Enter key in the return section
+    function handleReturnEnter(e){ 
+      if(e.key === 'Enter'){ 
+        returnFixture(); 
+      } 
+    }
 
     function setError(elId, msg){
       const el = document.getElementById(elId);
@@ -541,6 +589,54 @@
       }
     }
 
+    // Add a new function for returning fixtures
+    async function returnFixture() {
+      clearError('return-error');
+      document.getElementById('return-success').classList.add('hidden');
+
+      const clientPhone = document.getElementById('return-phone').value.trim();
+      const partNumber = document.getElementById('return-part').value.trim();
+
+      if (!clientPhone) { 
+        setError('return-error','Please enter a client phone number'); 
+        return; 
+      }
+      
+      if (!partNumber) { 
+        setError('return-error','Please enter a part number'); 
+        return; 
+      }
+
+      try {
+        const res = await fetch('/api/return_by_phone_part', {
+          method:'POST',
+          headers:{ 'Content-Type':'application/json' },
+          body: JSON.stringify({
+            client_phone: clientPhone,
+            part_number: partNumber
+          })
+        });
+        const data = await res.json();
+        
+        if (!res.ok || !data.ok) {
+          setError('return-error', data?.error || 'Return failed.');
+          return;
+        }
+
+        // Show success message
+        document.getElementById('return-details').textContent = `Returned ${data.returned} fixture(s)`;
+        document.getElementById('return-time').textContent = data.timestamp || '-';
+        document.getElementById('return-success').classList.remove('hidden');
+        
+        // Clear the input fields
+        document.getElementById('return-phone').value = '';
+        document.getElementById('return-part').value = '';
+
+      } catch (err) {
+        setError('return-error','Network error while returning fixture.');
+      }
+    }
+
     // Navigation helpers (kept layout)
     function goBackToSearch(){
       // reset selection view but keep typed article field content
@@ -571,6 +667,10 @@
 
       clearDetailsUI();
       clearError('search-error'); clearError('selection-error'); clearError('borrow-error');
+      clearError('return-error');
+      document.getElementById('return-success').classList.add('hidden');
+      document.getElementById('return-phone').value = '';
+      document.getElementById('return-part').value = '';
 
       showScreen('search-selection-screen');
       document.getElementById('article-number').focus();

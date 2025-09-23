@@ -282,6 +282,47 @@ def api_return():
     save_borrow(bor)
     return jsonify(ok=True, returned=updated_count, timestamp=now, borrow_ids=ids)
 
+# Add the new API endpoint for returning books using phone number and part number
+@app.post('/api/return_by_phone_part')
+def api_return_by_phone_part():
+    """
+    Body: { client_phone, part_number }
+    Finds all open borrows matching the phone number and part number, and marks them as returned.
+    """
+    data = request.get_json(force=True, silent=True) or {}
+    client_phone = str(data.get('client_phone', '')).strip()
+    part_number = str(data.get('part_number', '')).strip()
+
+    print(f"[DEBUG] Incoming request → client_phone={client_phone}, part_number={part_number}")
+
+    if not (client_phone and part_number):
+        return jsonify(ok=False, error='No open borrows found for this phone number and part number'), 400
+
+    bor = load_borrow()
+    if bor.empty:
+        return jsonify(ok=False, error='No borrow records'), 404
+
+    # Find open borrows matching phone number and part number
+    mask = (
+        (bor['Client Phone'].astype(str).str.strip() == client_phone) & 
+        (bor['Part Number'].astype(str).str.strip() == part_number) & 
+        (bor['Returned At'].isna())
+    )
+    
+    matching_records = bor[mask]
+    if matching_records.empty:
+        return jsonify(ok=False, error='No open borrows found for this phone number and part number'), 404
+
+    # Get the borrow IDs to return
+    ids = matching_records['borrow_id'].astype(str).tolist()
+    
+    # Update the records
+    now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    bor.loc[mask, 'Returned At'] = now
+    save_borrow(bor)
+    
+    return jsonify(ok=True, returned=len(ids), timestamp=now, borrow_ids=ids)
+
 # Fallback to serve static files (index.html in same folder)
 @app.route('/<path:path>')
 def static_forward(path):
