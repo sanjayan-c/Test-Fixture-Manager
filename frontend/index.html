@@ -12,7 +12,7 @@
     .header { background:linear-gradient(135deg,#2c3e50,#34495e); color:white; padding:30px; text-align:center; }
     .header h1 { font-size:2.5rem; margin-bottom:10px; }
     .header p { font-size:1.2rem; opacity:.9; }
-    .screen { display:none; padding:30px; min-height:600px; }
+    .screen { display:none; padding:30px; }
     .screen.active { display:block; }
 
     /* Screen 1 layout (kept) */
@@ -33,21 +33,10 @@
     .btn-info{ background:linear-gradient(135deg,#17a2b8,#007bff); color:white; }
 
     /* Disabled button overlay */
-    .btn[disabled] {
-      cursor:not-allowed;
-      filter:saturate(0.7) brightness(0.9);
-    }
+    .btn[disabled] { cursor:not-allowed; filter:saturate(0.7) brightness(0.9); }
     .btn[disabled]::after {
-      content:"🔒";
-      position:absolute;
-      inset:0;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      background:rgba(0,0,0,0.25);
-      color:#fff;
-      font-weight:800;
-      letter-spacing:1px;
+      content:"🔒"; position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+      background:rgba(0,0,0,0.25); color:#fff; font-weight:800; letter-spacing:1px;
     }
 
     .selection-section { background:linear-gradient(135deg,#667eea,#764ba2); color:white; padding:30px; border-radius:15px; }
@@ -75,7 +64,7 @@
     .location-highlight { background:linear-gradient(135deg,#ff6b6b,#ee5a24); padding:25px; border-radius:15px; margin:20px 0; text-align:center; animation:pulse 2s infinite; color:white; }
     @keyframes pulse { 0%{transform:scale(1)} 50%{transform:scale(1.02)} 100%{transform:scale(1)} }
 
-    /* Global step indicator (style kept) */
+    /* Dynamic step indicator */
     .step-indicator { display:flex; justify-content:center; margin:20px 0; gap:10px; }
     .step { width:15px; height:15px; border-radius:50%; background:#ddd; }
     .step.active { background:#667eea; }
@@ -96,205 +85,209 @@
     .error-message { background:#f8d7da; color:#721c24; padding:12px; border-radius:8px; margin:15px 0; border:1px solid #f5c6cb; }
     .navigation-buttons { text-align:center; margin-top:25px; }
     .instruction-note { background:linear-gradient(135deg,#17a2b8,#007bff); color:white; padding:15px; border-radius:10px; margin:15px 0; font-size:.9rem; }
+
+    /* Mode helpers (optional, just for clarity) */
+    .mode-return #borrow-flow { display:none; }
+    .mode-borrow #return-flow { display:none; }
   </style>
 </head>
-<body>
+<body class="mode-borrow">
   <div class="container">
     <div class="header">
       <h1>🔧 Test Fixture Management</h1>
-      <p>Smart Inventory Tracking System - 3 Screen Interface</p>
-      <!-- Add a button to navigate to the return screen -->
+      <p>Smart Inventory Tracking System</p>
+      <!-- Header actions switch modes -->
       <div style="margin-top: 15px;">
-        <button class="btn btn-warning" onclick="showScreen('return-books-screen'); setStep(4);" style="margin: 0 5px;">↩️ Return Fixture</button>
-        <button class="btn btn-primary" onclick="showScreen('search-selection-screen'); setStep(1);" style="margin: 0 5px;">🔍 Borrow Fixture</button>
+        <button class="btn btn-primary" onclick="setMode('borrow'); showScreen('search-selection-screen'); setStep(1);" style="margin: 0 5px;">🔍 Borrow Fixture</button>
+        <button class="btn btn-warning" onclick="setMode('return'); showScreen('return-books-screen'); setStep(1);" style="margin: 0 5px;">↩️ Return Fixture</button>
       </div>
     </div>
 
-    <!-- Global step indicator -->
-    <div class="step-indicator" id="global-steps">
-      <div class="step"></div>
-      <div class="step"></div>
-      <div class="step"></div>
-      <div class="step"></div>
-    </div>
+    <!-- Dynamic step indicator -->
+    <div class="step-indicator" id="global-steps"></div>
 
-    <!-- Screen 1: Search + (hidden) System Selection -->
-    <div class="screen search-selection-screen active" id="search-selection-screen">
-      <!-- Left: Search -->
-      <div class="search-section">
-        <h2>🔍 Find Test Fixture</h2>
+    <!-- ===== BORROW FLOW (3 steps) ===== -->
+    <div id="borrow-flow">
+      <!-- Screen 1: Search + System Selection -->
+      <div class="screen search-selection-screen active" id="search-selection-screen">
+        <!-- Left: Search -->
+        <div class="search-section">
+          <h2>🔍 Find Test Fixture</h2>
 
-        <div class="input-group">
-          <label for="article-number">Enter Article Number</label>
-          <input type="text" id="article-number" placeholder="Type article number..." onkeypress="handleEnter(event)" autofocus>
-        </div>
-
-        <button class="btn btn-primary" onclick="searchFixture()">🔍 Search Fixture</button>
-
-        <div class="instruction-note">
-          <strong>📋 Instructions:</strong><br>
-          Enter Article Number. If found, you can select a test system with available units.
-        </div>
-
-        <div id="search-error" class="error-message hidden"></div>
-      </div>
-
-      <!-- Right: System Selection (hidden until search succeeds) -->
-      <div class="selection-section hidden" id="selection-section">
-        <h2>⚙️ Select Test System</h2>
-
-        <div id="fixture-found" class="fixture-found hidden">
-          <h3>✅ Fixture Found:</h3>
-          <p><strong>Article: <span id="found-article">-</span> | Part: <span id="found-part">-</span></strong></p>
-          <p><strong>Name: <span id="found-name">-</span></strong></p>
-        </div>
-
-        <div id="systems-empty-note" class="instruction-note hidden">
-          No available systems for this article right now.
-        </div>
-
-        <div class="system-grid" id="system-grid"></div>
-
-        <div id="selection-error" class="error-message hidden"></div>
-
-        <div class="navigation-buttons">
-          <button class="btn btn-success" onclick="proceedToLocation()" id="proceed-btn" disabled>
-            Continue to Location →
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Screen 2: Fixture Details + Borrow -->
-    <div class="screen location-scan-screen" id="location-scan-screen">
-      <!-- Left: Details -->
-      <div class="fixture-details-section">
-        <h2>📋 Fixture Details</h2>
-
-        <div class="detail-grid">
-          <div class="detail-item">
-            <label>Article Number:</label>
-            <span id="detail-article">-</span>
+          <div class="input-group">
+            <label for="article-number">Enter Article Number</label>
+            <input type="text" id="article-number" placeholder="Type article number..." onkeypress="handleEnter(event)" autofocus>
           </div>
-          <div class="detail-item">
-            <label>Part Number:</label>
-            <span id="detail-part">-</span>
+
+          <button class="btn btn-primary" onclick="searchFixture()">🔍 Search Fixture</button>
+
+          <div class="instruction-note">
+            <strong>📋 Instructions:</strong><br>
+            Enter Article Number. If found, you can select a test system with available units.
           </div>
-          <div class="detail-item">
-            <label>Available Units:</label>
-            <span id="detail-units">-</span>
-          </div>
-          <div class="detail-item">
-            <label>Test System:</label>
-            <span id="detail-system">-</span>
-          </div>
+
+          <div id="search-error" class="error-message hidden"></div>
         </div>
 
-        <div class="detail-item" style="margin-top:15px;">
-          <label>Fixture Name:</label>
-          <span id="detail-name">-</span>
-        </div>
+        <!-- Right: System Selection (hidden until search succeeds) -->
+        <div class="selection-section hidden" id="selection-section">
+          <h2>⚙️ Select Test System</h2>
 
-        <div class="detail-item" style="margin-top:15px;">
-          <label>Description:</label>
-          <span id="detail-description">-</span>
-        </div>
+          <div id="fixture-found" class="fixture-found hidden">
+            <h3>✅ Fixture Found:</h3>
+            <p><strong>Article: <span id="found-article">-</span> | Part: <span id="found-part">-</span></strong></p>
+            <p><strong>Name: <span id="found-name">-</span></strong></p>
+          </div>
 
-        <div class="detail-item" style="margin-top:15px;">
-          <label>Locations:</label>
-          <span id="detail-locations">-</span>
+          <div id="systems-empty-note" class="instruction-note hidden">
+            No available systems for this article right now.
+          </div>
+
+          <div class="system-grid" id="system-grid"></div>
+
+          <div id="selection-error" class="error-message hidden"></div>
+
+          <div class="navigation-buttons">
+            <button class="btn btn-success" onclick="proceedToLocation()" id="proceed-btn" disabled>
+              Continue to Location →
+            </button>
+          </div>
         </div>
       </div>
 
-      <!-- Right: Location + Borrow form -->
-      <div class="scan-section">
-        <h2>📍 Fixture Location & Borrow</h2>
+      <!-- Screen 2: Fixture Details + Borrow -->
+      <div class="screen location-scan-screen" id="location-scan-screen">
+        <!-- Left: Details -->
+        <div class="fixture-details-section">
+          <h2>📋 Fixture Details</h2>
 
-        <div class="location-highlight">
-          <h3>📍 Primary Location: <span id="display-location">-</span></h3>
-          <p>Use the location to find the fixture</p>
-        </div>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <label>Article Number:</label>
+              <span id="detail-article">-</span>
+            </div>
+            <div class="detail-item">
+              <label>Part Number:</label>
+              <span id="detail-part">-</span>
+            </div>
+            <div class="detail-item">
+              <label>Available Units:</label>
+              <span id="detail-units">-</span>
+            </div>
+            <div class="detail-item">
+              <label>Test System:</label>
+              <span id="detail-system">-</span>
+            </div>
+          </div>
 
-        <div class="employee-section">
-          <h3>👤 Client Information</h3>
-          <label for="client-name">Client Name</label>
-          <input type="text" id="client-name" placeholder="Enter client name">
-          <div style="height:8px;"></div>
-          <label for="client-phone">Client Phone</label>
-          <input type="text" id="client-phone" placeholder="Enter client phone">
-          <div class="inline-qty">
-            <label for="borrow-qty" style="color:white; font-weight:600;">Quantity</label>
-            <input type="number" id="borrow-qty" min="1" value="1">
+          <div class="detail-item" style="margin-top:15px;">
+            <label>Fixture Name:</label>
+            <span id="detail-name">-</span>
+          </div>
+
+          <div class="detail-item" style="margin-top:15px;">
+            <label>Description:</label>
+            <span id="detail-description">-</span>
+          </div>
+
+          <div class="detail-item" style="margin-top:15px;">
+            <label>Locations:</label>
+            <span id="detail-locations">-</span>
           </div>
         </div>
 
-        <div id="borrow-error" class="error-message hidden"></div>
+        <!-- Right: Location + Borrow form -->
+        <div class="scan-section">
+          <h2>📍 Fixture Location & Borrow</h2>
 
-        <div class="navigation-buttons">
-          <button class="btn btn-info" onclick="goBackToSearch()">← Back to Search</button>
-          <button class="btn btn-success" id="borrow-btn" onclick="borrowNow()" disabled>✅ Borrow</button>
+          <div class="location-highlight">
+            <h3>📍 Primary Location: <span id="display-location">-</span></h3>
+            <p>Use the location to find the fixture</p>
+          </div>
+
+          <div class="employee-section">
+            <h3>👤 Client Information</h3>
+            <label for="client-name">Client Name</label>
+            <input type="text" id="client-name" placeholder="Enter client name">
+            <div style="height:8px;"></div>
+            <label for="client-phone">Client Phone</label>
+            <input type="text" id="client-phone" placeholder="Enter client phone">
+            <div class="inline-qty">
+              <label for="borrow-qty" style="color:white; font-weight:600;">Quantity</label>
+              <input type="number" id="borrow-qty" min="1" value="1">
+            </div>
+          </div>
+
+          <div id="borrow-error" class="error-message hidden"></div>
+
+          <div class="navigation-buttons">
+            <button class="btn btn-info" onclick="goBackToSearch()">← Back to Search</button>
+            <button class="btn btn-success" id="borrow-btn" onclick="borrowNow()" disabled>✅ Borrow</button>
+          </div>
         </div>
       </div>
-    </div>
 
-    <!-- Screen 3: Success -->
-    <div class="screen transaction-success-screen" id="transaction-success-screen">
-      <h2 style="color:#2c3e50; margin-bottom:30px;">🎉 Borrow Successful</h2>
+      <!-- Screen 3: Success -->
+      <div class="screen transaction-success-screen" id="transaction-success-screen">
+        <h2 style="color:#2c3e50; margin-bottom:30px;">🎉 Borrow Successful</h2>
 
-      <div class="transaction-card" style="position:relative;">
-        <div class="scan-success">
-          <h3>✅ Transaction Recorded</h3>
-          <p><strong><span id="scanned-details">-</span></strong></p>
-        </div>
+        <div class="transaction-card" style="position:relative;">
+          <div class="scan-success">
+            <h3>✅ Transaction Recorded</h3>
+            <p><strong><span id="scanned-details">-</span></strong></p>
+          </div>
 
-        <div class="transaction-summary">
-          <h4>Transaction Details:</h4>
-          <p><strong>Article: <span id="trans-article">-</span> | Part: <span id="trans-part">-</span></strong></p>
-          <p><strong>Fixture: <span id="trans-name">-</span></strong></p>
-          <p><strong>Test System: <span id="trans-system">-</span></strong></p>
-          <p>Location: <span id="trans-location">-</span></p>
-          <p>Borrowed at: <span id="scan-time">-</span></p>
-          <p>Quantity: <span id="trans-qty">-</span></p>
-          <p>Client: <span id="trans-client">-</span> (<span id="trans-clientphone">-</span>)</p>
-        </div>
+          <div class="transaction-summary">
+            <h4>Transaction Details:</h4>
+            <p><strong>Article: <span id="trans-article">-</span> | Part: <span id="trans-part">-</span></strong></p>
+            <p><strong>Fixture: <span id="trans-name">-</span></strong></p>
+            <p><strong>Test System: <span id="trans-system">-</span></strong></p>
+            <p>Location: <span id="trans-location">-</span></p>
+            <p>Borrowed at: <span id="scan-time">-</span></p>
+            <p>Quantity: <span id="trans-qty">-</span></p>
+            <p>Client: <span id="trans-client">-</span> (<span id="trans-clientphone">-</span>)</p>
+          </div>
 
-        <div class="navigation-buttons">
-          <button class="btn btn-primary" onclick="startNewTransaction()">🔄 New Transaction</button>
+          <div class="navigation-buttons">
+            <button class="btn btn-primary" onclick="startNewTransaction()">🔄 New Transaction</button>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Screen 4: Return Books -->
-    <div class="screen return-books-screen" id="return-books-screen">
-      <div class="search-section">
-        <h2>↩️ Return Test Fixture</h2>
+    <!-- ===== RETURN FLOW (single step) ===== -->
+    <div id="return-flow">
+      <div class="screen return-books-screen" id="return-books-screen">
+        <div class="search-section">
+          <h2>↩️ Return Test Fixture</h2>
 
-        <div class="input-group">
-          <label for="return-phone">Client Phone Number</label>
-          <input type="text" id="return-phone" placeholder="Enter client phone number..." onkeypress="handleReturnEnter(event)">
-        </div>
+          <div class="input-group">
+            <label for="return-phone">Client Phone Number</label>
+            <input type="text" id="return-phone" placeholder="Enter client phone number..." onkeypress="handleReturnEnter(event)">
+          </div>
 
-        <div class="input-group">
-          <label for="return-part">Part Number</label>
-          <input type="text" id="return-part" placeholder="Enter part number...">
-        </div>
+          <div class="input-group">
+            <label for="return-part">Part Number</label>
+            <input type="text" id="return-part" placeholder="Enter part number...">
+          </div>
 
-        <button class="btn btn-primary" onclick="returnFixture()">↩️ Return Fixture</button>
+          <button class="btn btn-primary" onclick="returnFixture()">↩️ Return Fixture</button>
 
-        <div class="instruction-note">
-          <strong>📋 Instructions:</strong><br>
-          Enter Client Phone Number and Part Number to return all matching fixtures.
-        </div>
+          <div class="instruction-note">
+            <strong>📋 Instructions:</strong><br>
+            Enter Client Phone Number and Part Number to return all matching fixtures.
+          </div>
 
-        <div id="return-error" class="error-message hidden"></div>
-        <div id="return-success" class="scan-success hidden">
-          <h3>✅ Return Successful</h3>
-          <p><strong><span id="return-details">-</span></strong></p>
-          <p>Returned at: <span id="return-time">-</span></p>
-        </div>
+          <div id="return-error" class="error-message hidden"></div>
+          <div id="return-success" class="scan-success hidden">
+            <h3>✅ Return Successful</h3>
+            <p><strong><span id="return-details">-</span></strong></p>
+            <p>Returned at: <span id="return-time">-</span></p>
+          </div>
 
-        <div class="navigation-buttons">
-          <button class="btn btn-info" onclick="showScreen('search-selection-screen'); setStep(1);">← Back to Search</button>
+          <div class="navigation-buttons">
+            <button class="btn btn-info" onclick="setMode('borrow'); showScreen('search-selection-screen'); setStep(1);">← Back to Borrow</button>
+          </div>
         </div>
       </div>
     </div>
@@ -310,6 +303,31 @@
     let primaryLocation = '';
     let locationsList = [];
 
+    // Mode & steps
+    // borrow: 3 steps (Search/System → Details/Borrow → Success)
+    // return: 1 step (Return)
+    let mode = 'borrow';
+    const stepsByMode = { borrow: 3, return: 1 };
+
+    function setMode(nextMode) {
+      mode = (nextMode === 'return') ? 'return' : 'borrow';
+      document.body.classList.toggle('mode-borrow', mode === 'borrow');
+      document.body.classList.toggle('mode-return', mode === 'return');
+      renderSteps(stepsByMode[mode], 1);
+    }
+
+    function renderSteps(total, activeIndex) {
+      const container = document.getElementById('global-steps');
+      container.innerHTML = '';
+      for (let i = 1; i <= total; i++) {
+        const dot = document.createElement('div');
+        dot.className = 'step';
+        if (i < activeIndex) dot.classList.add('completed');
+        if (i === activeIndex) dot.classList.add('active');
+        container.appendChild(dot);
+      }
+    }
+
     // System icons (kept)
     function iconForSystem(sys) {
       const s = (sys || '').toUpperCase();
@@ -320,29 +338,21 @@
       return '🧩';
     }
 
-    // Global step controller
+    // Steps controller respecting mode
     function setStep(n) {
-      const steps = document.querySelectorAll('#global-steps .step');
-      steps.forEach((s, i) => {
-        s.classList.remove('active', 'completed');
-        if (i < n - 1) s.classList.add('completed');
-        if (i === n - 1) s.classList.add('active');
-      });
+      const total = stepsByMode[mode] || 1;
+      const active = Math.max(1, Math.min(n, total));
+      renderSteps(total, active);
     }
 
     // Screens
     function showScreen(id) {
       document.querySelectorAll('.screen').forEach(sc => sc.classList.remove('active'));
-      document.getElementById(id).classList.add('active');
+      const el = document.getElementById(id);
+      if (el) el.classList.add('active');
     }
     function handleEnter(e){ if(e.key === 'Enter'){ searchFixture(); } }
-
-    // Add a new function to handle Enter key in the return section
-    function handleReturnEnter(e){ 
-      if(e.key === 'Enter'){ 
-        returnFixture(); 
-      } 
-    }
+    function handleReturnEnter(e){ if(e.key === 'Enter'){ returnFixture(); } }
 
     function setError(elId, msg){
       const el = document.getElementById(elId);
@@ -399,10 +409,10 @@
       if (borrowBtn) borrowBtn.disabled = true;
     }
 
-    // 1) Search → reveal system selection (only available)
+    // ===== Borrow flow logic =====
     async function searchFixture() {
-      clearError('search-error');
-      clearError('selection-error');
+      if (mode !== 'borrow') { setMode('borrow'); }
+      clearError('search-error'); clearError('selection-error');
 
       // Reset right side
       document.getElementById('selection-section').classList.add('hidden');
@@ -476,7 +486,6 @@
       clearError('selection-error');
     }
 
-    // 2) Continue → fetch details, show details screen (kept layout)
     async function proceedToLocation() {
       if (!searchedArticle) { setError('selection-error','Please search for a fixture first'); return; }
       if (!selectedSystem) { setError('selection-error','Please select a test system'); return; }
@@ -516,7 +525,6 @@
           }
         });
 
-        // Move to Screen 2
         showScreen('location-scan-screen');
         setStep(2);
 
@@ -525,7 +533,6 @@
       }
     }
 
-    // 3) Borrow (client fields + location)
     async function borrowNow() {
       clearError('borrow-error');
 
@@ -558,7 +565,7 @@
           return;
         }
 
-        // Reflect new availability locally (if user navigates back)
+        // Reflect new availability locally
         availableUnits = Math.max(0, availableUnits - (data.quantity || qtyVal));
         const unitsEl = document.getElementById('detail-units');
         if (unitsEl) unitsEl.textContent = String(availableUnits);
@@ -575,7 +582,6 @@
         document.getElementById('trans-client').textContent = clientName;
         document.getElementById('trans-clientphone').textContent = clientPhone;
 
-        // Disable the borrow button (avoid double submits) and go to success
         const borrowBtn = document.getElementById('borrow-btn');
         if (borrowBtn) borrowBtn.disabled = true;
 
@@ -589,57 +595,7 @@
       }
     }
 
-    // Add a new function for returning fixtures
-    async function returnFixture() {
-      clearError('return-error');
-      document.getElementById('return-success').classList.add('hidden');
-
-      const clientPhone = document.getElementById('return-phone').value.trim();
-      const partNumber = document.getElementById('return-part').value.trim();
-
-      if (!clientPhone) { 
-        setError('return-error','Please enter a client phone number'); 
-        return; 
-      }
-      
-      if (!partNumber) { 
-        setError('return-error','Please enter a part number'); 
-        return; 
-      }
-
-      try {
-        const res = await fetch('/api/return_by_phone_part', {
-          method:'POST',
-          headers:{ 'Content-Type':'application/json' },
-          body: JSON.stringify({
-            client_phone: clientPhone,
-            part_number: partNumber
-          })
-        });
-        const data = await res.json();
-        
-        if (!res.ok || !data.ok) {
-          setError('return-error', data?.error || 'Return failed.');
-          return;
-        }
-
-        // Show success message
-        document.getElementById('return-details').textContent = `Returned ${data.returned} fixture(s)`;
-        document.getElementById('return-time').textContent = data.timestamp || '-';
-        document.getElementById('return-success').classList.remove('hidden');
-        
-        // Clear the input fields
-        document.getElementById('return-phone').value = '';
-        document.getElementById('return-part').value = '';
-
-      } catch (err) {
-        setError('return-error','Network error while returning fixture.');
-      }
-    }
-
-    // Navigation helpers (kept layout)
     function goBackToSearch(){
-      // reset selection view but keep typed article field content
       document.getElementById('selection-section').classList.add('hidden');
       document.getElementById('fixture-found').classList.add('hidden');
       document.getElementById('systems-empty-note').classList.add('hidden');
@@ -647,7 +603,6 @@
       document.getElementById('proceed-btn').disabled = true;
       selectedSystem = null;
 
-      // clear details panel + inputs and lock borrow button
       clearDetailsUI();
 
       showScreen('search-selection-screen');
@@ -655,7 +610,8 @@
     }
 
     function startNewTransaction(){
-      // full reset to Screen 1
+      // full reset to Screen 1 (borrow mode)
+      setMode('borrow');
       searchedArticle = null; foundPart = null; foundName = null;
       selectedSystem = null; availableUnits = 0; primaryLocation = ''; locationsList = [];
       document.getElementById('article-number').value = '';
@@ -677,7 +633,47 @@
       setStep(1);
     }
 
-    // Initialize global steps on load
+    // ===== Return flow logic =====
+    async function returnFixture() {
+      clearError('return-error');
+      const successEl = document.getElementById('return-success');
+      if (successEl) successEl.classList.add('hidden');
+
+      const clientPhone = document.getElementById('return-phone').value.trim();
+      const partNumber = document.getElementById('return-part').value.trim();
+
+      if (!clientPhone) { setError('return-error','Please enter a client phone number'); return; }
+      if (!partNumber) { setError('return-error','Please enter a part number'); return; }
+
+      try {
+        const res = await fetch('/api/return_by_phone_part', {
+          method:'POST',
+          headers:{ 'Content-Type':'application/json' },
+          body: JSON.stringify({ client_phone: clientPhone, part_number: partNumber })
+        });
+        const data = await res.json();
+
+        if (!res.ok || !data.ok) {
+          setError('return-error', data?.error || 'Return failed.');
+          return;
+        }
+
+        document.getElementById('return-details').textContent = `Returned ${data.returned} fixture(s)`;
+        document.getElementById('return-time').textContent = data.timestamp || '-';
+        successEl.classList.remove('hidden');
+
+        document.getElementById('return-phone').value = '';
+        document.getElementById('return-part').value = '';
+        setStep(1); // single-step remains active
+
+      } catch (err) {
+        setError('return-error','Network error while returning fixture.');
+      }
+    }
+
+    // Initialize on load
+    setMode('borrow');      // default landing in Borrow flow
+    showScreen('search-selection-screen');
     setStep(1);
   </script>
 </body>
