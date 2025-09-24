@@ -3,16 +3,10 @@ from pathlib import Path
 from datetime import datetime
 import pandas as pd
 import uuid
-import os
-
-from flask_cors import CORS
 
 # Serve files from the folder that contains this script
 BASE = Path(__file__).parent.resolve()
-
-# Remove static serving here; let Vercel serve index.html
-app = Flask(__name__)
-CORS(app, resources={r"/api/*": {"origins": "*"}})
+app = Flask(__name__, static_folder=str(BASE), static_url_path='')
 
 DATA_DIR = BASE / 'data'
 FIX_FILE = DATA_DIR / 'Test Fixture Location_final.xlsx'
@@ -111,16 +105,9 @@ def availability(df: pd.DataFrame, article: str, system: str) -> int:
     return max(base_qty - used, 0)
 
 # ---------- Routes ----------
-
-# Optional: simple health check for PA
-@app.get('/api/health')
-def health():
-    return jsonify(status='ok')
-
-
-# @app.route('/')
-# def index():
-#     return send_from_directory(str(BASE), 'index.html')
+@app.route('/')
+def index():
+    return send_from_directory(str(BASE), 'index.html')
 
 @app.get('/api/search')
 def api_search():
